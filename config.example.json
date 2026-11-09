@@ -1,0 +1,27 @@
+{
+  "location": null,
+  "cache_dir": "/var/lib/cbbc-signage",
+  "poll_seconds": 300,
+  "timeout_seconds": 45,
+  "settle_seconds": 3,
+  "stable_seconds": 1,
+  "timezone": "America/Los_Angeles",
+  "channels": {
+    "food": {
+      "output": "HDMI-1",
+      "viewport": [1920, 1080],
+      "rotation": "normal",
+      "ready_selector": "#main-content .et_pb_image img",
+      "capture_selector": "#main-content",
+      "required_text": ""
+    },
+    "drinks": {
+      "output": "HDMI-2",
+      "viewport": [1920, 1080],
+      "rotation": "normal",
+      "ready_selector": "#main-content .et_pb_image img",
+      "capture_selector": "#main-content",
+      "required_text": ""
+    }
+  }
+}

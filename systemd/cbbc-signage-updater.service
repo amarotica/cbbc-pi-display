@@ -1,0 +1,20 @@
+[Unit]
+Description=Common Block background menu renderer
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=@USER@
+WorkingDirectory=/opt/cbbc-signage
+Environment=PYTHONUNBUFFERED=1
+Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/cbbc-signage/browsers
+ExecStart=/opt/cbbc-signage/.venv/bin/python -m signage.worker
+Restart=always
+RestartSec=15
+KillMode=control-group
+TimeoutStopSec=15
+UMask=0022
+
+[Install]
+WantedBy=multi-user.target
