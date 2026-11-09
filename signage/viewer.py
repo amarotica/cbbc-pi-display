@@ -6,10 +6,10 @@ import subprocess
 import sys
 
 from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QPainter, QPixmap
+from PyQt5.QtGui import QColor, QPainter, QPixmap
 from PyQt5.QtWidgets import QApplication, QWidget
 
-from signage.common import SnapshotStore, load_config
+from signage.common import CANVAS_BACKGROUND, SnapshotStore, load_config
 from signage.display import configure_outputs
 
 LOG = logging.getLogger("signage.viewer")
@@ -24,7 +24,7 @@ class MenuWindow(QWidget):
         self.version = None
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.setCursor(Qt.BlankCursor)
-        self.setStyleSheet("background-color:black")
+        self.setStyleSheet(f"background-color:{CANVAS_BACKGROUND}")
         # Allocate without mapping on the default monitor. QtWayland uses this
         # QScreen's wl_output in its xdg_toplevel.set_fullscreen request.
         self.winId()
@@ -50,7 +50,7 @@ class MenuWindow(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.fillRect(self.rect(), Qt.black)
+        painter.fillRect(self.rect(), QColor(CANVAS_BACKGROUND))
         if not self.image.isNull():
             size = self.image.size().scaled(self.size(), Qt.KeepAspectRatio)
             x = (self.width() - size.width()) // 2

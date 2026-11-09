@@ -14,6 +14,7 @@ from PIL import Image
 from signage.display import output_name
 
 CHANNELS = {"food": "food", "drinks": "drink"}
+CANVAS_BACKGROUND = "#0b3c4a"
 
 
 def load_config(path, hostname=None):

@@ -2,7 +2,7 @@
 import asyncio
 from urllib.parse import urlsplit
 
-from signage.common import pixel_hash
+from signage.common import CANVAS_BACKGROUND, pixel_hash
 
 # Validate images in the configured readiness region, including lazy images
 # and CSS backgrounds, before publishing a snapshot of the viewport.
@@ -80,7 +80,10 @@ async def render(browser, channel, config, viewport):
                 raise ValueError(f"Unexpected redirect to {page.url}")
             await page.locator(channel["ready_selector"]).first.wait_for(state="visible")
             selector = channel.get("capture_selector")
-            await page.add_style_tag(content="html {scrollbar-width:none} * {caret-color:transparent!important}")
+            await page.add_style_tag(content=(
+                f"html, body {{background-color:{CANVAS_BACKGROUND}!important}} "
+                "html {scrollbar-width:none} * {caret-color:transparent!important}"
+            ))
             # Promote native lazy images before waiting for layout to settle.
             await page.locator("img").evaluate_all("images => images.forEach(i => i.loading = 'eager')")
             await asyncio.sleep(config["settle_seconds"])

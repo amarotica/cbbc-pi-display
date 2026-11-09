@@ -73,6 +73,8 @@ Edit `/etc/cbbc-signage/config.json`, then reboot (or restart the updater and th
 
 Each website gets a stable **1080 × 1920 CSS-pixel content box** by default. The screenshot is the same 1080 × 1920 pixel size, with browser device scale factor 1 and no browser toolbar or scrollbar. A portrait Full HD output therefore displays it at 1:1 size. If an output has a different resolution, the viewer scales the snapshot uniformly, preserving aspect ratio.
 
+The page canvas (`html` and `body`) and the viewer's surrounding fill use the menu blue, `#0b3c4a`, so unused space below the content blends into the menu background. Backgrounds on individual page elements remain under the website's control.
+
 The **website owns all layout**: use the full viewport for its background and fit the header plus media within it. For example, `html, body { margin: 0; width: 100%; height: 100%; }` and a `100dvh` menu layout provide the available box. Match header/media widths and use aspect-preserving CSS such as `object-fit: contain` on the website. Content below or outside the visible viewport is clipped, as it would be in a fullscreen browser; the Pi does not scroll or resize the document to include it. Existing `screens.json` files from earlier versions are ignored.
 
 Displays should be powered on at boot; if a TV does not advertise a connector while off, that menu window appears when it reconnects. A missing channel's window is closed immediately on Qt's screen-removal notification so it does not remain on the other TV.
