@@ -86,7 +86,9 @@ def install_autostart(home, system_autostart, merge_config=False):
     path.chmod(path.stat().st_mode | 0o100)
 
 
-def migrate_config(path):
+def migrate_config(path, rotation=None):
+    if rotation is not None and rotation not in {"normal", "left", "right", "inverted"}:
+        raise ValueError("rotation must be normal, left, right, or inverted")
     path = Path(path)
     config = json.loads(path.read_text())
     changed = False
@@ -95,6 +97,17 @@ def migrate_config(path):
         if output in {"HDMI-1", "HDMI-2"}:
             channel["output"] = output.replace("HDMI-", "HDMI-A-")
             changed = True
+        if rotation is not None:
+            if channel.get("rotation") != rotation:
+                channel["rotation"] = rotation
+                changed = True
+            size = channel.get("viewport")
+            if size and len(size) == 2:
+                width, height = size
+                portrait = rotation in {"left", "right"}
+                if (portrait and width > height) or (not portrait and height > width):
+                    channel["viewport"] = [height, width]
+                    changed = True
     if changed:
         replace_text(path, json.dumps(config, indent=2) + "\n")
     return changed
@@ -108,9 +121,11 @@ def main():
     parser.add_argument("--find-session", action="store_true")
     parser.add_argument("--merge-config", action="store_true")
     parser.add_argument("--migrate-config", type=Path)
+    parser.add_argument("--rotation", choices=("normal", "left", "right", "inverted"),
+                        help="Set both channel rotations and orient their fallback viewports")
     args = parser.parse_args()
     if args.migrate_config:
-        migrate_config(args.migrate_config)
+        migrate_config(args.migrate_config, args.rotation)
     elif args.home is None:
         parser.error("--home is required")
     elif args.find_session:

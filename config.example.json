@@ -10,16 +10,16 @@
   "channels": {
     "food": {
       "output": "HDMI-A-1",
-      "viewport": [1920, 1080],
-      "rotation": "normal",
+      "viewport": [1080, 1920],
+      "rotation": "left",
       "ready_selector": "#main-content .et_pb_image img",
       "capture_selector": "#main-content",
       "required_text": ""
     },
     "drinks": {
       "output": "HDMI-A-2",
-      "viewport": [1920, 1080],
-      "rotation": "normal",
+      "viewport": [1080, 1920],
+      "rotation": "left",
       "ready_selector": "#main-content .et_pb_image img",
       "capture_selector": "#main-content",
       "required_text": ""

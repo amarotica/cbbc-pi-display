@@ -1,6 +1,6 @@
 # Common Block Raspberry Pi signage
 
-Dual-display, unattended signage for Raspberry Pi 4. The hostname selects the venue; no per-Pi URL editing is needed.
+Dual-display, unattended signage for Raspberry Pi 4. Both displays default to portrait orientation, rotated 90 degrees counterclockwise. The hostname selects the venue; no per-Pi URL editing is needed.
 
 | Hostname | Food: HDMI-A-1 | Drinks: HDMI-A-2 |
 | --- | --- | --- |
@@ -30,7 +30,7 @@ sudo bash setup.sh --user YOUR_USERNAME
 
 The installer adds Python/venv, PyQt5, Pillow, Qt's Wayland plugin (`qtwayland5`), and the small `wlr-randr` output utility. It reuses `chromium` or `chromium-browser` already installed on the desktop; if neither is present, it installs the distribution's `chromium` package. Playwright is installed as a Python dependency, but **no Playwright browser download or `install --with-deps` bundle is run**. It does not install Xorg, Openbox, or another LightDM instance.
 
-Installation needs internet access for missing packages and Python dependencies. It does not reboot automatically. Repeat installation from an updated checkout to update the software; custom menu settings and cached PNGs are preserved. Updates take effect fully after a reboot.
+Installation needs internet access for missing packages and Python dependencies. It does not reboot automatically. Repeat installation from an updated checkout to update the software; custom menu settings and cached PNGs are preserved. Setup applies `left` (90 degrees counterclockwise) rotation to both channels, including existing installs, and orients the fallback viewports to portrait. To install a different orientation, use `sudo bash setup.sh --rotation normal` (or `right` / `inverted`). Updates take effect fully after a reboot.
 
 The existing user labwc autostart file receives one managed launch block. Unrelated startup commands are preserved; changed existing files receive a `.before-cbbc-signage` backup. With Pi's `labwc -m`, the system autostart continues running separately. The setup disables standard `swayidle` blanking for the signage account, and uses the Pi's screen-blanking setting when available. The launcher stops the account's existing `swayidle` process at startup. Custom screen-locking/power-management programs need separate configuration.
 
@@ -64,8 +64,8 @@ Edit `/etc/cbbc-signage/config.json`, then reboot (or restart the updater and th
 | `timezone` | Browser timezone; default `America/Los_Angeles`. |
 | `browser_executable` | `null` finds system `chromium`/`chromium-browser`; an explicit executable path overrides discovery. |
 | Channel `output` | Exact Wayland connector name; default food `HDMI-A-1`, drinks `HDMI-A-2`. Previous `HDMI-1`/`HDMI-2` names are also accepted as aliases. |
-| Channel `viewport` | Fallback browser width/height before the viewer reports actual screen dimensions. |
-| Channel `rotation` | `normal`, `left`, `right`, or `inverted`; controls the physical output orientation. |
+| Channel `viewport` | Fallback browser width/height before the viewer reports actual screen dimensions; default `[1080, 1920]`. |
+| Channel `rotation` | `left` (default, 90 degrees counterclockwise), `right` (clockwise), `normal`, or `inverted`; controls the physical output orientation. |
 | Channel `url` | Optional per-channel URL override. |
 | Channel `ready_selector` | A visible menu element required before capture. |
 | Channel `capture_selector` | Element to capture in full; `null` captures the full document. |
@@ -86,7 +86,17 @@ XDG_RUNTIME_DIR="/run/user/$(id -u)" WAYLAND_DISPLAY=wayland-0 wlr-randr
 
 If the session's socket is not named `wayland-0`, find it with `find "/run/user/$(id -u)" -maxdepth 1 -type s -name 'wayland-*'` and use that socket's filename as `WAYLAND_DISPLAY`. These commands inspect the running desktop over SSH; `$XDG_SESSION_TYPE` in the SSH shell itself describes the SSH login, not the graphical session.
 
-If your system uses different connector names, update the channel `output` values. For a portrait screen, set its `rotation` to `left` or `right`. TVs that boot with missing EDID may require fixed video modes in Raspberry Pi OS; this installer leaves boot firmware settings unchanged.
+If your system uses different connector names, update the channel `output` values. `left` applies Wayland's `90` transform (counterclockwise); `right` applies `270` (clockwise). TVs that boot with missing EDID may require fixed video modes in Raspberry Pi OS; this installer leaves boot firmware settings unchanged.
+
+To rotate an existing installation counterclockwise without rerunning package installation, first copy this updated checkout to the Pi, then run from its repository directory:
+
+```bash
+sudo python3 -m signage.desktop_setup \
+    --migrate-config /etc/cbbc-signage/config.json --rotation left
+sudo reboot
+```
+
+This updates both rotations and fallback viewport orientations using a JSON parser, preserving temporary URL overrides and other menu settings. It saves a backup when no `.before-cbbc-signage` backup already exists. The viewer reads rotation at startup, so restarting only the updater does not apply it. Cached menus remain visible offline; after reconnecting, a later render uses the actual portrait screen dimensions reported by the viewer.
 
 ## Website readiness and current source-page findings
 

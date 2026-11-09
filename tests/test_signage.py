@@ -90,7 +90,7 @@ class SignageTests(unittest.TestCase):
         report.write_text(json.dumps({"food": [1080, 1920]}))
         self.assertEqual(viewport_for(self.config, "food"), {"width": 1080, "height": 1920})
         report.write_text('{"food": [0, "bad"]}')
-        self.assertEqual(viewport_for(self.config, "food"), {"width": 1920, "height": 1080})
+        self.assertEqual(viewport_for(self.config, "food"), {"width": 1080, "height": 1920})
 
     def test_legacy_output_names_are_normalized_and_alias_collisions_rejected(self):
         data = json.loads(self.config_path.read_text())

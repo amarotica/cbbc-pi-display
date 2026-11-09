@@ -1,18 +1,24 @@
 #!/usr/bin/env bash
 # Reuse an existing Raspberry Pi OS Desktop labwc session.
-# Run: sudo bash setup.sh [--user USER]
+# Run: sudo bash setup.sh [--user USER] [--rotation left|right|normal|inverted]
 set -euo pipefail
 if [[ $EUID -ne 0 ]]; then
     echo 'Run with sudo: sudo bash setup.sh [--user USER]' >&2
     exit 1
 fi
 target_user=${SUDO_USER:-}
+target_rotation=left
 while (($#)); do
     case "$1" in
         --user) [[ $# -ge 2 ]] || { echo 'Missing --user value' >&2; exit 1; }; target_user=$2; shift 2 ;;
+        --rotation) [[ $# -ge 2 ]] || { echo 'Missing --rotation value' >&2; exit 1; }; target_rotation=$2; shift 2 ;;
         *) echo "Unknown argument: $1" >&2; exit 1 ;;
     esac
 done
+case "$target_rotation" in
+    left|right|normal|inverted) ;;
+    *) echo 'Rotation must be left, right, normal, or inverted.' >&2; exit 1 ;;
+esac
 if [[ ! $target_user =~ ^[a-z_][a-z0-9_-]*\$?$ || $target_user == root ]] || ! id "$target_user" &>/dev/null; then
     echo 'Specify an existing non-root account with --user USER (or run from that account using sudo).' >&2
     exit 1
@@ -69,7 +75,8 @@ python3 -m venv --system-site-packages "$install_dir/.venv"
 # Reuse the desktop's system Chromium; no second browser or install-deps bundle.
 chown -R "$target_user:$(id -gn "$target_user")" "$cache_dir"
 cd "$install_dir"
-"$install_dir/.venv/bin/python" -m signage.desktop_setup --migrate-config "$config_dir/config.json"
+"$install_dir/.venv/bin/python" -m signage.desktop_setup \
+    --migrate-config "$config_dir/config.json" --rotation "$target_rotation"
 "$install_dir/.venv/bin/python" -c 'from signage.common import load_config; load_config("/etc/cbbc-signage/config.json")'
 runuser -u "$target_user" -- "$install_dir/.venv/bin/python" -m signage.desktop_setup \
     --home "$target_home" "${desktop_args[@]}"
@@ -101,5 +108,6 @@ systemctl set-default graphical.target
 echo
 echo "Installed for $target_user on $(hostname -s). Config: $config_dir/config.json"
 echo "Using existing Wayland desktop session: $desktop_session"
+echo "Both outputs use rotation: $target_rotation (left = 90 degrees counterclockwise)"
 echo 'Connect both displays, then run: sudo reboot'
 echo 'The first successful fetch is needed before a menu can be displayed offline.'

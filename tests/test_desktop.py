@@ -29,6 +29,9 @@ HDMI-A-2 "Second TV (HDMI-A-2)"
 class DisplayTests(unittest.TestCase):
     def setUp(self):
         self.config = json.loads((ROOT / "config.example.json").read_text())
+        # Tests below start from unrotated physical outputs unless stated otherwise.
+        for channel in self.config["channels"].values():
+            channel["rotation"] = "normal"
         self.outputs = parse_outputs(OUTPUTS)
 
     def test_correct_existing_layout_never_applies_a_display_change(self):
@@ -54,6 +57,23 @@ class DisplayTests(unittest.TestCase):
         command = run.call_args.args[0]
         self.assertIn("90", command)
         self.assertIn("1080,0", command)
+
+    def test_portrait_defaults_rotate_both_outputs_counterclockwise(self):
+        config = json.loads((ROOT / "config.example.json").read_text())
+        with patch("signage.display.read_outputs", return_value=self.outputs), patch("signage.display.subprocess.run") as run:
+            configure_outputs(config)
+        command = run.call_args.args[0]
+        self.assertEqual([command[i + 1] for i, arg in enumerate(command) if arg == "--transform"], ["90", "90"])
+        self.assertEqual([command[i + 1] for i, arg in enumerate(command) if arg == "--pos"], ["0,0", "1080,0"])
+
+    def test_already_rotated_portrait_outputs_are_not_reconfigured(self):
+        config = json.loads((ROOT / "config.example.json").read_text())
+        for output in self.outputs:
+            output["transform"] = "90"
+        self.outputs[1]["position"] = (1080, 0)
+        with patch("signage.display.read_outputs", return_value=self.outputs), patch("signage.display.subprocess.run") as run:
+            configure_outputs(config)
+            run.assert_not_called()
 
     def test_missing_food_connector_never_changes_drinks_identity(self):
         with patch("signage.display.read_outputs", return_value=self.outputs[1:]), patch("signage.display.subprocess.run") as run:
@@ -151,6 +171,28 @@ class DesktopSetupTests(unittest.TestCase):
         (self.sessions / "unrelated.desktop").write_text("[Desktop Entry]\nExec=some-other-desktop\n")
         (self.home / ".dmrc").write_text("[Desktop]\nSession=cbbc-signage\n")
         self.assertEqual(find_session(self.home, self.sessions), "LXDE-pi-labwc")
+
+    def test_rotation_upgrade_preserves_urls_and_other_settings(self):
+        path = self.home / "config.json"
+        config = {"poll_seconds": 77, "channels": {
+            "food": {"output": "HDMI-A-1", "rotation": "normal", "viewport": [1920, 1080],
+                     "url": "https://example.org/test-food", "ready_selector": "body"},
+            "drinks": {"output": "HDMI-A-2", "rotation": "normal", "viewport": [2560, 1440],
+                       "url": "https://example.org/test-drinks", "capture_selector": "body"}}}
+        path.write_text(json.dumps(config))
+        self.assertTrue(migrate_config(path, rotation="left"))
+        config["channels"]["food"].update(rotation="left", viewport=[1080, 1920])
+        config["channels"]["drinks"].update(rotation="left", viewport=[1440, 2560])
+        self.assertEqual(json.loads(path.read_text()), config)
+        self.assertFalse(migrate_config(path, rotation="left"))
+
+    def test_rotation_can_return_to_landscape_without_swapping_twice(self):
+        path = self.home / "config.json"
+        path.write_text(json.dumps({"channels": {"food": {
+            "rotation": "left", "viewport": [1080, 1920]}}}))
+        self.assertTrue(migrate_config(path, rotation="normal"))
+        self.assertEqual(json.loads(path.read_text())["channels"]["food"]["viewport"], [1920, 1080])
+        self.assertFalse(migrate_config(path, rotation="normal"))
 
     def test_missing_desktop_fails_preflight(self):
         with self.assertRaises(ValueError):
