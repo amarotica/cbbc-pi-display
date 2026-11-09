@@ -6,9 +6,10 @@
   "settle_seconds": 3,
   "stable_seconds": 1,
   "timezone": "America/Los_Angeles",
+  "browser_executable": null,
   "channels": {
     "food": {
-      "output": "HDMI-1",
+      "output": "HDMI-A-1",
       "viewport": [1920, 1080],
       "rotation": "normal",
       "ready_selector": "#main-content .et_pb_image img",
@@ -16,7 +17,7 @@
       "required_text": ""
     },
     "drinks": {
-      "output": "HDMI-2",
+      "output": "HDMI-A-2",
       "viewport": [1920, 1080],
       "rotation": "normal",
       "ready_selector": "#main-content .et_pb_image img",

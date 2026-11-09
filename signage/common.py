@@ -11,6 +11,8 @@ from urllib.parse import urlsplit
 
 from PIL import Image
 
+from signage.display import output_name
+
 CHANNELS = {"food": "food", "drinks": "drink"}
 
 
@@ -33,6 +35,7 @@ def load_config(path, hostname=None):
     outputs = set()
     for name, slug in CHANNELS.items():
         channel = config["channels"][name]
+        channel["output"] = output_name(channel["output"])
         if channel["output"] in outputs:
             raise ValueError("Food and drinks need distinct outputs")
         outputs.add(channel["output"])

@@ -1,6 +1,7 @@
 """Real Chromium tests, using a local HTTP server (no public network required)."""
 import asyncio
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import os
 import threading
 import unittest
 
@@ -51,7 +52,10 @@ class RendererTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         from playwright.async_api import async_playwright
         self.playwright = await async_playwright().start()
-        self.browser = await self.playwright.chromium.launch()
+        options = {"headless": True, "chromium_sandbox": True}
+        if os.environ.get("SIGNAGE_TEST_BROWSER"):
+            options["executable_path"] = os.environ["SIGNAGE_TEST_BROWSER"]
+        self.browser = await self.playwright.chromium.launch(**options)
         self.config = {"timeout_seconds": 3, "settle_seconds": 0.1, "stable_seconds": 0.2, "timezone": "America/Los_Angeles"}
 
     async def asyncTearDown(self):

@@ -4,12 +4,20 @@ import asyncio
 from datetime import datetime, timezone
 import logging
 from pathlib import Path
+import shutil
 import time
 
 from signage.common import SnapshotStore, load_config, viewport_for, write_json
 from signage.renderer import render
 
 LOG = logging.getLogger("signage")
+
+
+def browser_options(config):
+    executable = config.get("browser_executable") or shutil.which("chromium") or shutil.which("chromium-browser")
+    if not executable:
+        raise RuntimeError("System Chromium is missing; install chromium or set browser_executable in config")
+    return {"headless": True, "chromium_sandbox": True, "executable_path": executable}
 
 
 async def update_channel(browser, config, name):
@@ -36,7 +44,7 @@ async def run(config, once=False):
         results = []
         async with async_playwright() as playwright:
             # Start a fresh process each cycle to bound long-term browser resource usage.
-            browser = await playwright.chromium.launch(headless=True, chromium_sandbox=True)
+            browser = await playwright.chromium.launch(**browser_options(config))
             try:
                 # Sequential rendering limits memory pressure on the Pi 4.
                 for name in config["channels"]:

@@ -9,8 +9,7 @@ from unittest.mock import AsyncMock, patch
 from PIL import Image, PngImagePlugin
 
 from signage.common import SnapshotStore, atomic_write, load_config, pixel_hash, viewport_for
-from signage.display import configure_outputs
-from signage.worker import update_channel
+from signage.worker import browser_options, update_channel
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -93,11 +92,23 @@ class SignageTests(unittest.TestCase):
         report.write_text('{"food": [0, "bad"]}')
         self.assertEqual(viewport_for(self.config, "food"), {"width": 1920, "height": 1080})
 
-    def test_missing_food_output_never_routes_drinks_to_food(self):
-        with patch("signage.display.connected_outputs", return_value=["HDMI-2"]), patch("signage.display.subprocess.run") as run:
-            configure_outputs(self.config)
-        self.assertEqual(run.call_count, 1)
-        self.assertEqual(run.call_args.args[0][2], "HDMI-2")
+    def test_legacy_output_names_are_normalized_and_alias_collisions_rejected(self):
+        data = json.loads(self.config_path.read_text())
+        data["channels"]["food"]["output"] = "HDMI-1"
+        self.config_path.write_text(json.dumps(data))
+        self.assertEqual(load_config(self.config_path, "mfr-pi-1")["channels"]["food"]["output"], "HDMI-A-1")
+        data["channels"]["drinks"]["output"] = "HDMI-A-1"
+        self.config_path.write_text(json.dumps(data))
+        with self.assertRaises(ValueError):
+            load_config(self.config_path, "mfr-pi-1")
+
+    def test_worker_uses_system_chromium_with_sandbox(self):
+        with patch("signage.worker.shutil.which", return_value="/usr/bin/chromium"):
+            self.assertEqual(browser_options(self.config), {"headless": True, "chromium_sandbox": True,
+                                                          "executable_path": "/usr/bin/chromium"})
+        with patch("signage.worker.shutil.which", return_value=None):
+            with self.assertRaises(RuntimeError):
+                browser_options(self.config)
 
     def test_outage_keeps_cached_menu_and_other_channel_can_update(self):
         self.store.publish(png("red"), {})

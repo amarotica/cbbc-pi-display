@@ -8,7 +8,6 @@ Type=simple
 User=@USER@
 WorkingDirectory=/opt/cbbc-signage
 Environment=PYTHONUNBUFFERED=1
-Environment=PLAYWRIGHT_BROWSERS_PATH=/opt/cbbc-signage/browsers
 ExecStart=/opt/cbbc-signage/.venv/bin/python -m signage.worker
 Restart=always
 RestartSec=15
