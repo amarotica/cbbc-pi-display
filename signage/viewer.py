@@ -1,7 +1,6 @@
 """Fullscreen local images; repaint only after a new image has decoded."""
 import argparse
 import logging
-from pathlib import Path
 import signal
 import subprocess
 import sys
@@ -10,7 +9,7 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPainter, QPixmap
 from PyQt5.QtWidgets import QApplication, QWidget
 
-from signage.common import SnapshotStore, load_config, write_json
+from signage.common import SnapshotStore, load_config
 from signage.display import configure_outputs
 
 LOG = logging.getLogger("signage.viewer")
@@ -110,14 +109,9 @@ def main():
     app.setQuitOnLastWindowClosed(False)
     app.setOverrideCursor(Qt.BlankCursor)
     windows = {}
-    last_sizes = None
 
     def reconcile():
-        nonlocal last_sizes
-        sizes = reconcile_windows(config, app, windows)
-        if sizes != last_sizes:
-            write_json(Path(config["cache_dir"]) / config["location"] / "screens.json", sizes)
-            last_sizes = sizes
+        reconcile_windows(config, app, windows)
 
     def check_topology():
         try:

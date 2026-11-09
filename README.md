@@ -30,7 +30,7 @@ sudo bash setup.sh --user YOUR_USERNAME
 
 The installer adds Python/venv, PyQt5, Pillow, Qt's Wayland plugin (`qtwayland5`), and the small `wlr-randr` output utility. It reuses `chromium` or `chromium-browser` already installed on the desktop; if neither is present, it installs the distribution's `chromium` package. Playwright is installed as a Python dependency, but **no Playwright browser download or `install --with-deps` bundle is run**. It does not install Xorg, Openbox, or another LightDM instance.
 
-Installation needs internet access for missing packages and Python dependencies. It does not reboot automatically. Repeat installation from an updated checkout to update the software; custom menu settings and cached PNGs are preserved. Setup applies `left` (90 degrees counterclockwise) rotation to both channels, including existing installs, and orients the fallback viewports to portrait. To install a different orientation, use `sudo bash setup.sh --rotation normal` (or `right` / `inverted`). Updates take effect fully after a reboot.
+Installation needs internet access for missing packages and Python dependencies. It does not reboot automatically. Repeat installation from an updated checkout to update the software; custom menu settings and cached PNGs are preserved. Setup applies `left` (90 degrees counterclockwise) rotation to both channels, including existing installs, and orients the configured viewports to portrait. To install a different orientation, use `sudo bash setup.sh --rotation normal` (or `right` / `inverted`). Updates take effect fully after a reboot.
 
 The existing user labwc autostart file receives one managed launch block. Unrelated startup commands are preserved; changed existing files receive a `.before-cbbc-signage` backup. With Pi's `labwc -m`, the system autostart continues running separately. The setup disables standard `swayidle` blanking for the signage account, and uses the Pi's screen-blanking setting when available. The launcher stops the account's existing `swayidle` process at startup. Custom screen-locking/power-management programs need separate configuration.
 
@@ -42,7 +42,7 @@ After reboot, LightDM logs into the existing labwc desktop automatically. Its au
 
 1. Every five minutes, a fresh hidden Chromium process loads each page in a fresh browser context. HTTP caches and service workers cannot reuse stale browser content. The two pages render sequentially to limit Pi memory usage.
 2. The renderer checks the HTTP response, expected URL, readiness selector, image decoding, CSS background images, and fonts. It rejects missing assets, empty content, unexpected redirects, and pages that are still changing between two captures.
-3. It captures the **entire selected menu element**, including content below the viewport. Pixel hashes ignore PNG metadata. Unchanged pixels cause no cache replacement or viewer update.
+3. It captures exactly the **visible browser viewport**, 1080 × 1920 pixels by default at device scale factor 1. It does not capture a long document and shrink it to the TV. Pixel hashes ignore PNG metadata. Unchanged pixels cause no cache replacement or viewer update.
 4. A changed image is flushed to disk before the current manifest is replaced atomically. The viewer decodes it before swapping its in-memory image during painting. There is no foreground web-page reload or blank loading screen.
 5. Timeouts, DNS failures, HTTP errors (including the three unpublished URLs), failed assets, or Chromium crashes leave the current menu in place. The worker retries automatically. Cached PNGs survive reboots; the viewer does not need the original HTML, fonts, or network to show them.
 
@@ -64,14 +64,18 @@ Edit `/etc/cbbc-signage/config.json`, then reboot (or restart the updater and th
 | `timezone` | Browser timezone; default `America/Los_Angeles`. |
 | `browser_executable` | `null` finds system `chromium`/`chromium-browser`; an explicit executable path overrides discovery. |
 | Channel `output` | Exact Wayland connector name; default food `HDMI-A-1`, drinks `HDMI-A-2`. Previous `HDMI-1`/`HDMI-2` names are also accepted as aliases. |
-| Channel `viewport` | Fallback browser width/height before the viewer reports actual screen dimensions; default `[1080, 1920]`. |
+| Channel `viewport` | Fixed browser CSS width/height, default `[1080, 1920]`. Monitor reports never override this. |
 | Channel `rotation` | `left` (default, 90 degrees counterclockwise), `right` (clockwise), `normal`, or `inverted`; controls the physical output orientation. |
 | Channel `url` | Optional per-channel URL override. |
 | Channel `ready_selector` | A visible menu element required before capture. |
-| Channel `capture_selector` | Element to capture in full; `null` captures the full document. |
+| Channel `capture_selector` | Region to validate for media readiness and required text; `null` validates the body. Capture always remains the fixed viewport. |
 | Channel `required_text` | Optional exact text that must appear in the capture region. |
 
-The viewer reports the actual dimensions of each screen to the updater, including rotation. The whole captured image fits the screen with its aspect ratio preserved and black bars where necessary. It does not stretch or crop content. For best legibility, design each source page for the TV’s orientation and aspect ratio. Full-page fitting can make a very tall page small on a landscape TV. Displays should be powered on at boot; if a TV does not advertise a connector while off, that menu window appears when it reconnects. A missing channel's window is closed immediately on Qt's screen-removal notification so it does not remain on the other TV.
+Each website gets a stable **1080 × 1920 CSS-pixel content box** by default. The screenshot is the same 1080 × 1920 pixel size, with browser device scale factor 1 and no browser toolbar or scrollbar. A portrait Full HD output therefore displays it at 1:1 size. If an output has a different resolution, the viewer scales the snapshot uniformly, preserving aspect ratio.
+
+The **website owns all layout**: use the full viewport for its background and fit the header plus media within it. For example, `html, body { margin: 0; width: 100%; height: 100%; }` and a `100dvh` menu layout provide the available box. Match header/media widths and use aspect-preserving CSS such as `object-fit: contain` on the website. Content below or outside the visible viewport is clipped, as it would be in a fullscreen browser; the Pi does not scroll or resize the document to include it. Existing `screens.json` files from earlier versions are ignored.
+
+Displays should be powered on at boot; if a TV does not advertise a connector while off, that menu window appears when it reconnects. A missing channel's window is closed immediately on Qt's screen-removal notification so it does not remain on the other TV.
 
 The signage viewer controls the two configured outputs' layout using `wlr-randr`: food at the left, drinks at the right, scale 1, with the requested rotations. It checks every ten seconds and only applies an output transaction when settings differ, avoiding repeated display mode resets on an unchanged desktop. Any additional outputs are left alone. Avoid configuring a competing automatic output profile with a different layout for these two displays.
 
@@ -96,7 +100,7 @@ sudo python3 -m signage.desktop_setup \
 sudo reboot
 ```
 
-This updates both rotations and fallback viewport orientations using a JSON parser, preserving temporary URL overrides and other menu settings. It saves a backup when no `.before-cbbc-signage` backup already exists. The viewer reads rotation at startup, so restarting only the updater does not apply it. Cached menus remain visible offline; after reconnecting, a later render uses the actual portrait screen dimensions reported by the viewer.
+This updates both rotations and configured viewport orientations using a JSON parser, preserving temporary URL overrides and other menu settings. It saves a backup when no `.before-cbbc-signage` backup already exists. The viewer reads rotation at startup, so restarting only the updater does not apply it. Cached menus remain visible offline; fresh renders use the configured fixed viewport.
 
 ## Website readiness and current source-page findings
 
@@ -107,9 +111,9 @@ The default selectors match the currently live Divi page:
 "capture_selector": "#main-content"
 ```
 
-Create the other three pages using the same structure, or adjust each channel’s selectors. A generic HTTP-200 maintenance/error page can only be recognized reliably with a website-specific contract. For stronger validation, add a unique attribute to the actual menu container, such as `data-signage="lmt-food"`, use `[data-signage="lmt-food"]` as its readiness/capture selector, and set `required_text` to a permanent heading that must be present. If content is populated asynchronously, expose the readiness marker only when that content is complete. Apply corresponding markers to the other venue/menu pages. The default image selector already rejects ordinary WordPress error pages that lack the menu structure.
+Create the other three pages using the same structure, or adjust each channel’s selectors. A generic HTTP-200 maintenance/error page can only be recognized reliably with a website-specific contract. For stronger validation, add a unique attribute to the actual menu container, such as `data-signage="lmt-food"`, use `[data-signage="lmt-food"]` as its readiness/validation selector, and set `required_text` to a permanent heading that must be present. If content is populated asynchronously, expose the readiness marker only when that content is complete. Apply corresponding markers to the other venue/menu pages. The default image selector already rejects ordinary WordPress error pages that lack the menu structure.
 
-Inspection on November 9, 2026 found that `/lmt-food-specials/` currently has a **DRINK SPECIALS** heading and an image named `LMT-Drink-and-Food-Specials-No-Header-scaled.png`. The configured food URL is preserved as requested; review the page content before rollout. Its menu is taller than a normal landscape viewport, which is why the default captures the whole menu instead of only the top of the page.
+Inspection on November 9, 2026 found that `/lmt-food-specials/` currently has a **DRINK SPECIALS** heading and an image named `LMT-Drink-and-Food-Specials-No-Header-scaled.png`. The configured food URL is preserved as requested; review the page content before rollout. The source site's Divi column widths, header sizing, and media fitting need to be designed for the fixed portrait viewport on the website itself.
 
 ## Operation and troubleshooting
 
@@ -183,7 +187,7 @@ Run that command from the source checkout, where `tests/` exists.
 
 The viewer also has offscreen Qt checks (`python -m unittest discover -s tests -p test_viewer.py -v`), using the PyQt5 package installed on the Pi. They verify unchanged images do not request repaints, corrupt candidates retain displayed pixels, and a restarted viewer loads the persisted menu.
 
-The local-server integration tests exercise full-height capture, HTTP failures, redirects, broken images/backgrounds, unstable/empty pages, missing readiness markers, and wrong menu text. Core tests cover venue routing, output isolation, unchanged pixels, atomic writes, cache integrity, offline restart persistence, and independent channel failures. Desktop tests cover config migration, preserved startup commands, repeat installation, missing/rotated outputs, and avoiding display changes on an already-correct layout. Physical native-Wayland dual-HDMI placement, boot autologin, TV reconnect behavior, and power-loss recovery still require an actual Pi acceptance test.
+The local-server integration tests exercise exact viewport capture (including all four corners of 1080 × 1920), tall/offset content, HTTP failures, redirects, broken images/backgrounds, unstable/empty pages, missing readiness markers, and wrong menu text. Core tests cover fixed viewport isolation from monitor reports, venue routing, output isolation, unchanged pixels, atomic writes, cache integrity, offline restart persistence, and independent channel failures. Desktop tests cover config migration, preserved startup commands, repeat installation, missing/rotated outputs, and avoiding display changes on an already-correct layout. Physical native-Wayland dual-HDMI placement, boot autologin, TV reconnect behavior, and power-loss recovery still require an actual Pi acceptance test.
 
 Before deploying all units: install one Pi, confirm both mappings, publish a changed menu, verify unchanged polling has no visible effect, unplug networking, and reboot offline to confirm both menus persist. Then reconnect networking and confirm updates resume.
 

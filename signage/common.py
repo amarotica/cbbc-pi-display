@@ -119,13 +119,6 @@ class SnapshotStore:
 
 
 def viewport_for(config, name):
-    """The viewer reports real pixel sizes; config is the headless-boot fallback."""
-    try:
-        sizes = json.loads((Path(config["cache_dir"]) / config["location"] / "screens.json").read_text())
-        width, height = sizes[name]
-        if all(type(x) is int and 100 <= x <= 7680 for x in (width, height)):
-            return {"width": width, "height": height}
-    except (OSError, ValueError, KeyError, TypeError):
-        pass
+    """Give the website a stable CSS viewport, independent of monitor reports."""
     width, height = config["channels"][name]["viewport"]
     return {"width": width, "height": height}

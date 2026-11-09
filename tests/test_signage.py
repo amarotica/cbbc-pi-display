@@ -84,10 +84,10 @@ class SignageTests(unittest.TestCase):
         (self.store.directory / f"{digest}.png").write_bytes(png("blue"))
         self.assertIsNone(self.store.current())
 
-    def test_real_screen_sizes_and_bad_report_fallback(self):
+    def test_monitor_report_cannot_override_the_websites_fixed_viewport(self):
         report = self.root / "lmt" / "screens.json"
         report.parent.mkdir()
-        report.write_text(json.dumps({"food": [1080, 1920]}))
+        report.write_text(json.dumps({"food": [2160, 3840]}))
         self.assertEqual(viewport_for(self.config, "food"), {"width": 1080, "height": 1920})
         report.write_text('{"food": [0, "bad"]}')
         self.assertEqual(viewport_for(self.config, "food"), {"width": 1080, "height": 1920})

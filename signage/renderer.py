@@ -4,8 +4,8 @@ from urllib.parse import urlsplit
 
 from signage.common import pixel_hash
 
-# Validate all images inside the captured region, including lazy images and CSS
-# backgrounds. Off-screen images in a full-page capture must finish too.
+# Validate images in the configured readiness region, including lazy images
+# and CSS backgrounds, before publishing a snapshot of the viewport.
 VALIDATE_MEDIA = r"""async (selector) => {
     await document.fonts.ready;
     if ([...document.fonts].some(font => font.status === 'error'))
@@ -90,11 +90,11 @@ async def render(browser, channel, config, viewport):
                 required = channel.get("required_text", "")
                 if required and required not in await page.locator(selector or "body").inner_text():
                     raise ValueError("Required menu text is absent")
-                target = page.locator(selector) if selector else page
-                options = {"type": "png", "animations": "disabled", "caret": "hide"}
-                if not selector:
-                    options["full_page"] = True
-                png = await target.screenshot(**options)
+                # A TV is one browser viewport. Capturing a tall element/document
+                # and fitting it afterward shrinks the website and adds bars.
+                # The website owns fitting its header and media into this box.
+                await page.evaluate("window.scrollTo({top: 0, left: 0, behavior: 'instant'})")
+                png = await page.screenshot(type="png", full_page=False, animations="disabled", caret="hide")
                 if failures:
                     raise ValueError(f"Failed page assets: {sorted(failures)[:3]}")
                 return png

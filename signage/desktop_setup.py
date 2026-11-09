@@ -122,7 +122,7 @@ def main():
     parser.add_argument("--merge-config", action="store_true")
     parser.add_argument("--migrate-config", type=Path)
     parser.add_argument("--rotation", choices=("normal", "left", "right", "inverted"),
-                        help="Set both channel rotations and orient their fallback viewports")
+                        help="Set both channel rotations and orient their configured viewports")
     args = parser.parse_args()
     if args.migrate_config:
         migrate_config(args.migrate_config, args.rotation)

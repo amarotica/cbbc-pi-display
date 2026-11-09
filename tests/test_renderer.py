@@ -29,6 +29,12 @@ class Pages(BaseHTTPRequestHandler):
             "/unstable": '<main id="menu">Menu</main><script>let i=0;setInterval(()=>document.querySelector("main").textContent="Menu "+i++,20)</script>',
             "/empty": '<main id="menu"></main>',
             "/soft-error": '<main>Maintenance</main>',
+            "/viewport": '''<style>html,body{margin:0;background:#0b3c4a}h1{margin:0}#menu{width:100vw;height:100vh;background:#e79b46}</style>
+                <main id="menu"><h1>Menu</h1><span id="size"></span></main>
+                <script>document.querySelector('#size').textContent=window.innerWidth+'x'+window.innerHeight;
+                if(innerWidth!==1080 || innerHeight!==1920 || devicePixelRatio!==1)
+                    document.querySelector('#menu').style.background='#ff00ff';</script>''',
+            "/offset": '<style>body{margin:0;background:#0b3c4a}#menu{margin-top:900px;height:100px;background:#e79b46}</style><main id="menu">Menu</main>',
         }
         self.wfile.write(pages.get(self.path, "missing").encode())
 
@@ -62,15 +68,32 @@ class RendererTests(unittest.IsolatedAsyncioTestCase):
         await self.browser.close()
         await self.playwright.stop()
 
-    async def capture(self, path, **options):
+    async def capture(self, path, viewport=None, **options):
         channel = {"url": f"http://127.0.0.1:{self.server.server_port}{path}", "ready_selector": "#menu", "capture_selector": "#menu", **options}
-        return await render(self.browser, channel, self.config, {"width": 800, "height": 600})
+        return await render(self.browser, channel, self.config, viewport or {"width": 800, "height": 600})
 
-    async def test_full_menu_is_not_cropped_to_viewport(self):
+    async def test_tall_document_does_not_change_the_capture_dimensions(self):
         import io
         from PIL import Image
         result = await self.capture("/good")
-        self.assertEqual(Image.open(io.BytesIO(result)).height, 1600)
+        self.assertEqual(Image.open(io.BytesIO(result)).size, (800, 600))
+
+    async def test_portrait_capture_matches_the_true_1080_by_1920_viewport(self):
+        import io
+        from PIL import Image
+        result = await self.capture("/viewport", viewport={"width": 1080, "height": 1920})
+        image = Image.open(io.BytesIO(result)).convert("RGB")
+        self.assertEqual(image.size, (1080, 1920))
+        # Website background reaches all four edges; there is no fitted page box.
+        for corner in ((0, 0), (1079, 0), (0, 1919), (1079, 1919)):
+            self.assertEqual(image.getpixel(corner), (231, 155, 70))
+
+    async def test_validation_selector_does_not_scroll_the_viewport_to_that_element(self):
+        import io
+        from PIL import Image
+        result = await self.capture("/offset")
+        image = Image.open(io.BytesIO(result)).convert("RGB")
+        self.assertEqual(image.getpixel((400, 300)), (11, 60, 74))
 
     async def test_invalid_pages_are_rejected(self):
         for path in ("/404", "/redirect", "/broken", "/background", "/unstable", "/empty", "/soft-error"):
